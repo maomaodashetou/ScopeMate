@@ -2,8 +2,13 @@
 
 [中文](#中文) · [English](#english)
 
-连接福禄克 ScopeMeter 120B 系列（如 Fluke 124B）的 WiFi，直接从仪器导出波形数据
-并绘制示波器曲线，**无需安装 FlukeView**。
+连接福禄克 ScopeMeter 120B 系列（如 Fluke 124B）的 WiFi，**把仪器里的波形记录
+导出为 CSV 数据文件**，方便在 Excel / MATLAB / Origin / Python 里做后续分析；
+同时提供曲线预览，**无需安装 FlukeView**。
+
+> **典型用法三步**：连接仪器 → 单击「曲线 N」→ 点「导出为 CSV」。
+> 导出的 CSV 每行一个采样点：`time_s, ch_a_V, ch_b_V`，时间轴由记录的起止时刻
+> 精确推算（见「时间轴的来源与验证」）。
 
 单文件、零第三方依赖，纯 Python 标准库实现。
 
@@ -11,18 +16,21 @@
 
 ## 特性
 
+- **核心功能：导出 CSV** —— 选中一条曲线记录，一键导出为
+  `time_s, ch_a_V, ch_b_V` 格式的 CSV（UTF-8 BOM，Excel 双击打开不乱码，
+  每行对应一个采样点）；仪表记录则导出
+  `time_s, meter_min_V, meter_avg_V, meter_max_V`。CSV 就近保存在记录所在
+  文件夹，可直接拖进 Excel / MATLAB / Origin / Python
 - **无需 FlukeView** —— 直接走仪器自带的匿名 FTP 服务
 - **文件夹级工作流** —— 界面不按文件表展示，而是按仪器本身的组织方式呈现：
   根目录只有「示波器内部存储」「示波器外部存储」两个存储区，进入后是
   「曲线 1 ~ 20」条目（若仪器里给记录起过名字，则显示「曲线 N · 名字」，
   名字取自 `index.txt`）。单击存储区进入、单击曲线即自动整包下载
-  （曲线数据 + `chA-srInfo` 等时间轴信息文件）并在主窗口内绘出曲线
+  （曲线数据 + `chA-srInfo` 等时间轴信息文件）
 - **原生格式解码** —— 仪器原生波形记录（`sr-chA-*` 文件）已完整解码：int16 A/B
   交织采样流，电压 = 原始值 × 0.0625 − 47.5 V（经与 FlukeView 导出数据逐点比对，
-  残差为 0）；导出为 `time_s, ch_a_V, ch_b_V` 格式的 CSV
-- **CSV 导出** —— 选中文件夹或记录文件一键导出 CSV（就近保存在记录所在
-  文件夹）；CSV 也可直接预览绘图
-- **专业曲线预览** —— 主窗口下方即预览区，Origin 风格：白底、黑色坐标框、
+  残差为 0）
+- **导出前先看一眼** —— 主窗口下方即预览区，Origin 风格：白底、黑色坐标框、
   向内主/次刻度、独立图例框、A/B 通道红蓝区分；十字光标读值、滚轮缩放、
   拖拽平移、双击复位；上万点数据自动抽稀，流畅渲染
 - **极简操作** —— 曲线下方只有「导出为 CSV」和「打开目录」两个按钮；
@@ -203,8 +211,13 @@ python ScopeMate.py
 
 [中文](#中文) · **English**
 
-Read waveforms straight from a Fluke ScopeMeter 120B series (e.g. 124B) over its
-built-in WiFi and plot them, **without installing FlukeView**.
+Read waveforms from a Fluke ScopeMeter 120B series (e.g. 124B) over its built-in
+WiFi and **export them as CSV data files** for Excel / MATLAB / Origin / Python.
+A live preview is included; **no FlukeView installation required**.
+
+> **Typical flow — three steps**: connect → click *Curve N* → click *Export CSV*.
+> Each CSV row is one sample: `time_s, ch_a_V, ch_b_V`; the time axis is derived
+> from the record's start/end timestamps (see *Time axis* below).
 
 Single file, no third-party dependencies — pure Python standard library.
 
@@ -212,22 +225,25 @@ Single file, no third-party dependencies — pure Python standard library.
 
 ## Features
 
+- **Core purpose: CSV export** — one click turns a curve record into
+  `time_s, ch_a_V, ch_b_V` (UTF-8 BOM so Excel opens it cleanly, one sample per
+  row); meter records export as
+  `time_s, meter_min_V, meter_avg_V, meter_max_V`. The CSV is written next to
+  the record folder and can be dropped straight into Excel / MATLAB / Origin /
+  Python
 - **No FlukeView needed** — talks to the instrument's own anonymous FTP service
 - **Folder-level workflow** — the UI mirrors the instrument instead of showing a
   file table: the root lists *Scope internal memory* / *Scope external memory*;
   inside are *Curve 1 … 20* (shown as *Curve N · name* when the record has a name
   in `index.txt`). Click a storage to enter, click a curve to download the whole
-  record folder (samples + `chA-srInfo` time base) and plot it right away
+  record folder (samples + `chA-srInfo` time base)
 - **Native decoding** — ScopeRecord files (`sr-chA-*`) are little-endian int16
   samples, A/B interleaved, voltage = `raw × 0.0625 − 47.5 V` (verified
-  point-by-point against FlukeView exports, residual 0); exported as
-  `time_s, ch_a_V, ch_b_V` CSV
-- **CSV export** — one click exports the selected folder/record next to the
-  source folder; CSV files can also be previewed
-- **Professional plot** — embedded Origin-style panel: white canvas, black
-  frame, inward major/minor ticks, boxed legend, red/blue channels; crosshair
-  readout, wheel zoom, drag to pan, double-click to reset; automatic min/max
-  decimation for large records
+  point-by-point against FlukeView exports, residual 0)
+- **Check before you export** — embedded Origin-style preview: white canvas,
+  black frame, inward major/minor ticks, boxed legend, red/blue channels;
+  crosshair readout, wheel zoom, drag to pan, double-click to reset; automatic
+  min/max decimation for large records
 - **Minimal UI** — only *Export CSV* and *Open Folder* under the plot; the
   connect button is always clickable (while connecting = cancel; when connected
   = disconnect and abort the current transfer)
