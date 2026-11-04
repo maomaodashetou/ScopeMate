@@ -11,7 +11,7 @@
 
 ## 特性
 
-- **无需 FlukeView** —— 直接走仪器内置 FTP（匿名登录，与 FlukeView 2 相同的通道）
+- **无需 FlukeView** —— 直接走仪器自带的匿名 FTP 服务
 - **文件夹级工作流** —— 界面不按文件表展示，而是按仪器本身的组织方式呈现：
   根目录只有「示波器内部存储」「示波器外部存储」两个存储区，进入后是
   「曲线 1 ~ 20」条目（若仪器里给记录起过名字，则显示「曲线 N · 名字」，
@@ -212,8 +212,7 @@ Single file, no third-party dependencies — pure Python standard library.
 
 ## Features
 
-- **No FlukeView needed** — talks to the instrument's own FTP server
-  (anonymous login, the same channel FlukeView 2 uses)
+- **No FlukeView needed** — talks to the instrument's own anonymous FTP service
 - **Folder-level workflow** — the UI mirrors the instrument instead of showing a
   file table: the root lists *Scope internal memory* / *Scope external memory*;
   inside are *Curve 1 … 20* (shown as *Curve N · name* when the record has a name
