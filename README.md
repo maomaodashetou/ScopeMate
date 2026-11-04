@@ -1,5 +1,7 @@
 # ScopeMate
 
+[中文](#中文) · [English](#english)
+
 连接福禄克 ScopeMeter 120B 系列（如 Fluke 124B）的 WiFi，直接从仪器导出波形数据
 并绘制示波器曲线，**无需安装 FlukeView**。
 
@@ -190,5 +192,228 @@ python ScopeMate.py
 ```
 
 ## 许可
+
+[MIT License](LICENSE) · Copyright (c) 2026 陈科雄 <kexiongchen@gmail.com>
+
+---
+
+<a id="english"></a>
+
+# ScopeMate (English)
+
+[中文](#中文) · **English**
+
+Read waveforms straight from a Fluke ScopeMeter 120B series (e.g. 124B) over its
+built-in WiFi and plot them, **without installing FlukeView**.
+
+Single file, no third-party dependencies — pure Python standard library.
+
+![Main window](assets/screenshot.png)
+
+## Features
+
+- **No FlukeView needed** — talks to the instrument's own FTP server
+  (anonymous login, the same channel FlukeView 2 uses)
+- **Folder-level workflow** — the UI mirrors the instrument instead of showing a
+  file table: the root lists *Scope internal memory* / *Scope external memory*;
+  inside are *Curve 1 … 20* (shown as *Curve N · name* when the record has a name
+  in `index.txt`). Click a storage to enter, click a curve to download the whole
+  record folder (samples + `chA-srInfo` time base) and plot it right away
+- **Native decoding** — ScopeRecord files (`sr-chA-*`) are little-endian int16
+  samples, A/B interleaved, voltage = `raw × 0.0625 − 47.5 V` (verified
+  point-by-point against FlukeView exports, residual 0); exported as
+  `time_s, ch_a_V, ch_b_V` CSV
+- **CSV export** — one click exports the selected folder/record next to the
+  source folder; CSV files can also be previewed
+- **Professional plot** — embedded Origin-style panel: white canvas, black
+  frame, inward major/minor ticks, boxed legend, red/blue channels; crosshair
+  readout, wheel zoom, drag to pan, double-click to reset; automatic min/max
+  decimation for large records
+- **Minimal UI** — only *Export CSV* and *Open Folder* under the plot; the
+  connect button is always clickable (while connecting = cancel; when connected
+  = disconnect and abort the current transfer)
+- **Bilingual** — switch between Chinese and English with one click
+- **Portable** — downloaded data and `settings.json` live next to the exe
+
+## Supported models
+
+120B series (123B / 124B / 125B …) with the WiFi USB adapter (bundled with the
+FLUKE-124B kit). Other models are untested — feedback welcome.
+
+## Usage
+
+1. Join the WiFi network broadcast by the instrument (default address
+   `192.168.80.1` in direct mode)
+2. Run `python ScopeMate.py`, or double-click the packaged `dist\ScopeMate.exe`,
+   then click *Connect*
+3. In *Scope Files*, click *Scope internal memory* (or external), then
+   **click a curve** (*Curve 1 … 20*): the whole record folder (samples +
+   `chA-srInfo`) is downloaded into the `waveforms` folder next to the app and
+   plotted below. Use *Up* to go back level by level
+4. The two buttons under the plot: *Export CSV* writes a CSV next to the record,
+   *Open Folder* opens that folder in Explorer
+5. Clicking any local folder/record previews it too — historical records remain
+   usable after disconnecting (everything lives in `waveforms`)
+6. Stuck? The connect button can be clicked at any time: while connecting it
+   cancels, while connected it disconnects and aborts the transfer
+
+> Same-name records are never overwritten: if `internal_1` already exists but
+> its files differ from the new download (another instrument, or the slot was
+> re-recorded), the app saves it as `internal_1(1)` and keeps the old copy. Only
+> when the file set is identical (re-downloading the same record) does it
+> update in place.
+
+> Sample interval: the record file has no time axis, but `chA-srInfo` in the
+> same folder stores the start/end time (seconds + milliseconds). The app uses
+> `interval = (end − start) / (samples − 1)`, so the first and last samples sit
+> exactly on the recorded timestamps (see *Time axis* below). `chA-srInfo` is
+> downloaded automatically; if it is missing, the app falls back to 20 ms.
+
+Portable by design: data and settings stay next to the app/exe, so a USB stick
+or another PC carries everything along.
+
+Building the exe yourself:
+
+```
+python -m PyInstaller --noconfirm --onefile --windowed --name ScopeMate ^
+  --icon assets\logo.ico --add-data "assets;assets" ScopeMate.py
+```
+
+## Native formats
+
+Records on the instrument's FTP server come in two families:
+
+- `sr-chA-*` (**ScopeRecord**): raw little-endian int16 samples, A/B
+  interleaved — plotted directly and exported as voltage CSV
+- `mr-chA-*` (**MeterRecord**): a sequence of 72-byte statistics units
+  (4 B window index + 64 B data holding min/avg/max counts),
+  `voltage = raw × 0.0001`, each unit covering a 0.5 s window (verified against
+  FlukeView exports); plotted as Min/Avg/Max and exported as CSV
+
+A ScopeRecord (`internal/1/sr-chA-*`, no extension) is a **headerless raw
+little-endian int16 stream**, A/B interleaved as `[A0, B0, A1, B1, …]`:
+
+```
+Voltage (V) = raw × 0.0625 − 47.5
+```
+
+- `0.0625 V/LSB` matches FlukeView's exported CSV (zero residual point by
+  point) and does not change with the vertical range (front-end gain is fixed;
+  V/div is a display concept only)
+- the zero point `760 LSB` (= 47.5 V / 0.0625) appears in the calibration block
+  of `setup.cfg` / `chA-srInfo`
+- even when the screen only shows channel A, the second (interleaved) channel
+  really exists — with nothing connected it picks up crosstalk and mains hum
+- the sample interval is not stored in the sample file; it is reconstructed
+  from the start/end timestamps in `chA-srInfo`
+
+## Time axis
+
+The sample file has no time field; `chA-srInfo` in the same folder provides:
+
+| Offset | Content |
+|---|---|
+| 1152 | start seconds (int32, LE) |
+| 1156 | start milliseconds (int32, LE) |
+| 1168 | end seconds (int32, LE) |
+| 1172 | end milliseconds (int32, LE) |
+
+```
+interval = (end − start) / (samples − 1)     # first/last sample on the timestamps
+```
+
+Measured on `internal/1` (16 164 samples): start `946700889 s + 254 ms`, end
+`946701212 s + 681 ms` → 16 163 intervals.
+
+| Method | Duration | Interval | Last sample |
+|---|---|---|---|
+| seconds + ms, ÷(n−1) (ScopeMate) | 323.427 s | 20.010334 ms | 323.427 s, exactly the end time |
+| integer seconds, ÷n (FlukeView) | 323 s | 19.982678 ms | 322.980 s, 0.447 s early |
+
+Cross-check: FlukeView stores `XResolution = 0.0199827 s` for the same record,
+which is exactly `323 / 16164` — the integer-second difference divided by the
+sample count. In other words it drops the milliseconds *and* misses one
+interval, so it ends 0.45 s before the recorded end time. ScopeMate keeps the
+milliseconds and divides by `n − 1`, so the last sample lands exactly on the
+end timestamp (for a 300 s record, dropping milliseconds alone is a ~0.13 %
+error).
+
+`internal/2` (960 samples) checks out the same way: `19.338 / 959 =
+20.164750 ms`.
+
+**No snapping to nominal steps.** Earlier versions rounded the result to steps
+such as 20 ms for tidier axes, but that flattened the real 0.77 % difference
+between records (20.010 vs 20.165) and made the axis length disagree with the
+recorded duration. The measured value is used as-is, so the CSV may contain
+steps like `0.020010`; the last row equals the recorded end time.
+
+If `chA-srInfo` is missing (e.g. only the sample file was copied), the app
+falls back to 20 ms.
+
+Fluke has not published the `.fvr` recording format, so those files are still
+handled with a black-box heuristic (float32 / int16 voltage block scanning).
+If a file parses badly, please open an issue with the structure dump
+(`fvr_structure_dump()` in Python prints header hex and data blocks) — never
+attach real measurement data.
+
+## Related open-source projects
+
+Third-party tools for Fluke instruments exist (no code shared with this
+project; ScopeMate is an independent implementation):
+
+- [ccrause/fluketrace](https://github.com/ccrause/fluketrace) (Pascal, MPL-2.0):
+  Fluke 120 series over serial, Trace A/B and PostScript screen dumps
+- [eddic/flukereader](https://github.com/eddic/flukereader) (Python): early
+  ScopeMeter serial reader
+- [JimHokanson/fluke_scopemeter_matlab](https://github.com/JimHokanson/fluke_scopemeter_matlab)
+  (MATLAB): ScopeMeter communication examples
+- [anachrocomputer/ScopeMeter99](https://github.com/anachrocomputer/ScopeMeter99):
+  ScopeMeter 99 Series II reader
+- [zach-edf/fluke-app](https://github.com/zach-edf/fluke-app) (Python): desktop
+  app / CLI / SDK for BLE handheld multimeters
+- [jb08brownie/Fluke189Controller](https://github.com/jb08brownie/Fluke189Controller)
+  (Python): Fluke 189 over infrared serial
+
+ScopeMate differs by using the **WiFi + FTP** channel of the 120B series:
+records (`sr-*` / `mr-*`) are read from the instrument's memory and decoded
+directly — no serial cable, no FlukeView.
+
+## License and legal notes
+
+- **Independent implementation**: ScopeMate was written independently. It does
+  not contain or copy source code, resources or binaries from FlukeView or any
+  third party, nor any fragment of vendor installers.
+- **Reproducible conclusions**: every format and conversion in this document can
+  be verified using only what the instrument itself produces — the files its FTP
+  server offers (`sr-chA-*`, `chA-srInfo`, …) and the network interaction
+  between the instrument and a host. Anyone with the same instrument can check
+  each statement.
+- **Interfaces and formats**: network protocols and file layouts are functional
+  facts and generally not subject to copyright (copyright protects a specific
+  expression, such as source code or artwork). This project documents only what
+  interoperability requires and copies no protected expression.
+- **No circumvention**: the app uses only the instrument's own anonymous FTP
+  service — no keys, no firmware modification, no bypassing of access control.
+- **Trademarks**: "Fluke", "ScopeMeter" and "FlukeView" are trademarks of Fluke
+  Corporation. This project is not affiliated with, sponsored or endorsed by
+  Fluke; the name ScopeMate deliberately avoids their marks, and they are used
+  here only to describe compatibility.
+- **No proprietary files distributed**: no Fluke firmware, drivers, manuals or
+  installers are included or shipped.
+- **No real measurement data**: screenshots and sample data in this repository
+  are synthetic demo waveforms; please do not attach field data to issues.
+- **Responsibility**: use this software only with instruments you own or are
+  authorized to use. It is provided "as is", without warranty of any kind.
+
+## Requirements
+
+- Python 3.8+ (standard library only, no `pip install`)
+- Windows / macOS / Linux (mainly tested on Windows)
+
+```bash
+python ScopeMate.py
+```
+
+## License
 
 [MIT License](LICENSE) · Copyright (c) 2026 陈科雄 <kexiongchen@gmail.com>
