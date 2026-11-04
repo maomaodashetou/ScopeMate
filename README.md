@@ -2,6 +2,8 @@
 
 [中文](#中文) · [English](#english)
 
+**直接下载 / Direct download**：[ScopeMate.exe（Windows 单文件）](https://github.com/maomaodashetou/ScopeMate/releases/latest) · 无需安装 Python
+
 连接福禄克 ScopeMeter 120B 系列（如 Fluke 124B）的 WiFi，**把仪器里的波形记录
 导出为 CSV 数据文件**，方便在 Excel / MATLAB / Origin / Python 里做后续分析；
 同时提供曲线预览，**无需安装 FlukeView**。
@@ -210,6 +212,8 @@ python ScopeMate.py
 # ScopeMate (English)
 
 [中文](#中文) · **English**
+
+**Direct download**: [ScopeMate.exe (single Windows binary)](https://github.com/maomaodashetou/ScopeMate/releases/latest) — no Python required
 
 Read waveforms from a Fluke ScopeMeter 120B series (e.g. 124B) over its built-in
 WiFi and **export them as CSV data files** for Excel / MATLAB / Origin / Python.
