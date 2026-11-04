@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+
+# 本地运行数据与构建产物，不要提交
+waveforms/
+settings.json
+build/
+dist/
+
+# 真实测量数据与厂商文档不属于本项目
+*.fvr
+*.pdf
+fluke_*.csv
