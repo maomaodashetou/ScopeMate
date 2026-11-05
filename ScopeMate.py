@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ScopeMate 1.0
+"""ScopeMate 1.0.1
 
 连接福禄克（Fluke）ScopeMeter 120B 系列的 WiFi 网络，直接从仪器内置 FTP
 下载波形 / 录制文件，无需安装 FlukeView 即可导出 CSV 并绘制示波器曲线。
@@ -31,7 +31,7 @@ from tkinter import messagebox, ttk
 import tkinter as tk
 
 APP_NAME = "ScopeMate"
-APP_VERSION = "1.0"
+APP_VERSION = "1.0.1"
 APP_AUTHOR = "陈科雄"
 APP_EMAIL = "kexiongchen@gmail.com"
 APP_REPO = "https://github.com/maomaodashetou/ScopeMate"
@@ -1032,11 +1032,14 @@ def fvr_structure_dump(path, out_dir):
 # 实测（Fluke 124B，FTP 下载 sr-chA-* 与 FlukeView 导出的 CSV 逐点比对，残差为 0）：
 #   * sr-chA-* 文件为小端 int16 原始采样流，无头部，A/B 两路按 [A0,B0,A1,B1,...] 交织；
 #     即使示波器屏幕只显示 A，交织流里的第二路也真实存在（B 输入悬空时拾取串扰/干扰）。
-#   * 电压 = 原始值 × 0.0625 - 47.5 V。0.0625 V/LSB 与 FlukeView 的 YResolution 一致，
-#     且不同档位下不变（前级增益固定，V/div 只是显示层概念）；零点 760 LSB 出现在
-#     setup.cfg / chA-srInfo 的标定块中（f8 02 00 00）。
+#   * 电压 = (原始值 - 零点) × 0.0625 V。0.0625 V/LSB 与 FlukeView 的 YResolution 一致，
+#     且不同档位下不变（前级增益固定，V/div 只是显示层概念）。
+#   * 零点不是常数：它随记录时的垂直位置变化，存放在同目录 chA-srInfo @69200
+#     （原始计数，实测两条记录分别为 760 与 1312）。按记录取零点，才能与
+#     FlukeView 导入后的电压逐点一致；取不到时才回退 760。
 SCOPE_LSB_V = 0.0625
 SCOPE_ZERO_LSB = 760
+SR_INFO_ZERO = 69200
 
 # 采样间隔的来源：记录文件本身不含时间轴，但同目录的 chA-srInfo 里保存了
 # 记录的起止时刻（@1152 起始秒 + @1156 毫秒，@1168 结束秒 + @1172 毫秒）。
@@ -1070,6 +1073,23 @@ def read_record_span(path):
     if not (_UNIX_Y2000 < start < end < _UNIX_Y2100):
         return None
     return end - start
+
+
+def read_record_zero(path):
+    """读取记录的零点（原始计数）：来自同目录 chA-srInfo 的记录标定块。
+
+    零点随记录时的垂直位置变化（同一条曲线在屏幕上摆高摆低就会不同），
+    因此必须按记录读取；缺失或数值不合理时回退默认零点。
+    """
+    info = os.path.join(os.path.dirname(os.path.abspath(path)), SR_INFO_FILE)
+    try:
+        with open(info, "rb") as fp:
+            fp.seek(SR_INFO_ZERO)
+            data = fp.read(4)
+        zero = struct.unpack("<i", data)[0]
+    except (OSError, struct.error):
+        return SCOPE_ZERO_LSB
+    return zero if 0 <= zero <= 4095 else SCOPE_ZERO_LSB
 
 
 def scope_sample_period(path, n):
@@ -1112,7 +1132,7 @@ def parse_scope_record(path):
     n = len(data) // 2
     raw = struct.unpack("<%dh" % n, data)
     k = SCOPE_LSB_V
-    z = SCOPE_ZERO_LSB
+    z = read_record_zero(path)
     out = []
     for ch in range(2):
         vals = [(raw[i] - z) * k for i in range(ch, n, 2)]

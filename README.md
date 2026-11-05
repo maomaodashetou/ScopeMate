@@ -30,8 +30,8 @@
   名字取自 `index.txt`）。单击存储区进入、单击曲线即自动整包下载
   （曲线数据 + `chA-srInfo` 等时间轴信息文件）
 - **原生格式解码** —— 仪器原生波形记录（`sr-chA-*` 文件）已完整解码：int16 A/B
-  交织采样流，电压 = 原始值 × 0.0625 − 47.5 V（经与 FlukeView 导出数据逐点比对，
-  残差为 0）
+  交织采样流，电压 = （原始值 − 零点）× 0.0625 V，零点按记录从 `chA-srInfo`
+  读取（经与 FlukeView 导入的数据逐点比对，残差为 0）
 - **导出前先看一眼** —— 主窗口下方即预览区，Origin 风格：白底、黑色坐标框、
   向内主/次刻度、独立图例框、A/B 通道红蓝区分；十字光标读值、滚轮缩放、
   拖拽平移、双击复位；上万点数据自动抽稀，流畅渲染
@@ -95,12 +95,15 @@ python -m PyInstaller --noconfirm --onefile --windowed --name ScopeMate ^
 无文件头**，A/B 两路按 `[A0, B0, A1, B1, ...]` 交织存储，电压换算：
 
 ```
-电压(V) = 原始值 × 0.0625 − 47.5
+电压(V) = (原始值 − 零点) × 0.0625
 ```
 
-- `0.0625 V/LSB` 与 FlukeView 导出 CSV 的数值一致（逐点残差为 0），且在不同
+- `0.0625 V/LSB` 与 FlukeView 导入后的数值一致（逐点残差为 0），且在不同
   垂直档位下不变（前级增益固定，V/div 只是显示层概念）；
-- 零点 `760 LSB`（= 47.5 V / 0.0625）出现在 `setup.cfg` / `chA-srInfo` 的标定块中；
+- **零点不是常数**：它随记录时波形在屏幕上的垂直位置变化，存放在同目录
+  `chA-srInfo` 的 `@69200`（int32，原始计数；实测两条记录分别为 760 与 1312）。
+  按记录读取零点后，换算结果与 FlukeView 逐点一致；该字段缺失时才回退
+  760 LSB（= 47.5 V / 0.0625）；
 - 即使示波器屏幕只显示 A 通道，交织流中的第二路（B 输入）也真实存在——
   B 未接表笔时拾取串扰与工频干扰，属正常现象；
 - 采样间隔不在曲线文件里，但同目录的 `chA-srInfo` 保存了记录的起止时刻，
@@ -242,8 +245,9 @@ Single file, no third-party dependencies — pure Python standard library.
   in `index.txt`). Click a storage to enter, click a curve to download the whole
   record folder (samples + `chA-srInfo` time base)
 - **Native decoding** — ScopeRecord files (`sr-chA-*`) are little-endian int16
-  samples, A/B interleaved, voltage = `raw × 0.0625 − 47.5 V` (verified
-  point-by-point against FlukeView exports, residual 0)
+  samples, A/B interleaved, voltage = `(raw − zero) × 0.0625 V` where the zero
+  offset is read per record from `chA-srInfo` (verified point-by-point against
+  data imported by FlukeView, residual 0)
 - **Check before you export** — embedded Origin-style preview: white canvas,
   black frame, inward major/minor ticks, boxed legend, red/blue channels;
   crosshair readout, wheel zoom, drag to pan, double-click to reset; automatic
@@ -313,14 +317,17 @@ A ScopeRecord (`internal/1/sr-chA-*`, no extension) is a **headerless raw
 little-endian int16 stream**, A/B interleaved as `[A0, B0, A1, B1, …]`:
 
 ```
-Voltage (V) = raw × 0.0625 − 47.5
+Voltage (V) = (raw − zero) × 0.0625
 ```
 
-- `0.0625 V/LSB` matches FlukeView's exported CSV (zero residual point by
+- `0.0625 V/LSB` matches the values FlukeView imports (zero residual point by
   point) and does not change with the vertical range (front-end gain is fixed;
   V/div is a display concept only)
-- the zero point `760 LSB` (= 47.5 V / 0.0625) appears in the calibration block
-  of `setup.cfg` / `chA-srInfo`
+- **the zero offset is not a constant**: it follows the vertical position the
+  trace had on screen while recording, and is stored at `@69200` of
+  `chA-srInfo` (int32, raw counts; 760 and 1312 in the two records measured).
+  Reading it per record makes the conversion match FlukeView exactly; when the
+  field is missing, 760 LSB (= 47.5 V / 0.0625) is used as a fallback
 - even when the screen only shows channel A, the second (interleaved) channel
   really exists — with nothing connected it picks up crosstalk and mains hum
 - the sample interval is not stored in the sample file; it is reconstructed
